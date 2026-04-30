@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>Buscar</h2>
+
+<input id="ubicacion" placeholder="Ciudad">
+<button onclick="buscar()">Buscar</button>
+
+<script>
+function buscar(){
+    const params = new URLSearchParams({
+        ubicacion: document.getElementById('ubicacion').value
+    });
+    window.location = "/resultados?" + params;
+}
+</script>
+
+</body>
+</html>
