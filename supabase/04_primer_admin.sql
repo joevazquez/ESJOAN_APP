@@ -10,8 +10,7 @@
 update public.profiles
    set rol = 'admin'
  where email = lower('joe._vazquez@hotmail.com');
- -- Vazquez#77
- -- re_2uMKSrZr_64xSJ9dhFy1DfTQAhht6CA9D
+ 
 
 -- Verificación: debe regresar 1 fila con rol = admin
 select email, rol, activo from public.profiles where rol = 'admin';
