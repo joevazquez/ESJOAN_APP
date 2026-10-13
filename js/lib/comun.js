@@ -1,4 +1,4 @@
-import { h } from './ui.js';
+import { h, icono } from './ui.js';
 import { etiquetaEstatus, idxEstatus } from './constantes.js';
 
 const CLASE_ESTATUS = { creado: '', en_revision_documentacion: 'warn', documentacion_completa: 'gold', en_avaluo: 'navy', en_proceso_firma: 'navy', firmado: 'ok' };
@@ -18,6 +18,23 @@ export function campoForm(id, etiqueta, control, ayuda, claseExtra = '') {
   const interno = control.classList && control.classList.contains('input-money') ? control.querySelector('input') : control;
   interno.id = id; if (!interno.name) interno.name = id;
   return h('div', { class: 'field ' + claseExtra }, h('label', { for: id }, etiqueta), control, ayuda ? h('span', { class: 'hint' }, ayuda) : null);
+}
+/** Campo con dato sensible oculto por defecto (correo, teléfono…): se muestra como puntos hasta
+ *  que se pulsa el ícono del ojo. No cambia el valor real del input, solo cómo se renderiza. */
+export function campoOcultable(id, etiqueta, input, ayuda, claseExtra = '') {
+  input.id = id; if (!input.name) input.name = id;
+  const tipoVisible = input.type && input.type !== 'password' ? input.type : 'text';
+  input.type = 'password';
+  const btn = h('button', { type: 'button', class: 'btn-ojo', 'aria-label': 'Mostrar ' + etiqueta.toLowerCase() }, icono('ojo'));
+  btn.addEventListener('click', () => {
+    const oculto = input.type === 'password';
+    input.type = oculto ? tipoVisible : 'password';
+    btn.replaceChildren(icono(oculto ? 'ojo_cerrado' : 'ojo'));
+    btn.setAttribute('aria-label', (oculto ? 'Ocultar ' : 'Mostrar ') + etiqueta.toLowerCase());
+  });
+  return h('div', { class: 'field ' + claseExtra }, h('label', { for: id }, etiqueta),
+    h('div', { class: 'campo-ojo' }, input, btn),
+    ayuda ? h('span', { class: 'hint' }, ayuda) : null);
 }
 /** Campo de dinero: se ve como 3,800,000 al salir del campo; aNumero() lo interpreta sin importar las comas */
 export const dinero = (id, valor = '', attrs = {}) => {

@@ -158,6 +158,12 @@ textarea.input { min-height: 90px; resize: vertical; }
 .input-money { position: relative; }
 .input-money::before { content: "$"; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 700; pointer-events: none; }
 .input-money .input { padding-left: 26px; }
+.campo-ojo { position: relative; }
+.campo-ojo .input { padding-right: 42px; letter-spacing: normal; }
+.campo-ojo input[type="password"].input { font-family: inherit; letter-spacing: 2px; }
+.btn-ojo { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; display: grid; place-items: center; border: none; background: transparent; color: var(--navy-700); border-radius: 999px; cursor: pointer; }
+.btn-ojo:hover { background: var(--navy-50); color: var(--red); }
+.btn-ojo .ic { width: 18px; height: 18px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
 .form-grid .full { grid-column: 1 / -1; }
 @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }

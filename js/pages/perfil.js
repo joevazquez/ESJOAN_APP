@@ -1,7 +1,7 @@
 import { sb, actualizarMiPerfil, mensajeError } from '../lib/api.js';
 import { h, banner, conBoton, toast, confirmar, icono } from '../lib/ui.js';
 import { ROLES } from '../lib/constantes.js';
-import { cabecera, hoja, campoForm } from '../lib/comun.js';
+import { cabecera, hoja, campoForm, campoOcultable } from '../lib/comun.js';
 import { reglasClave, claveValida } from './auth.js';
 
 export default async function perfil(ctx) {
@@ -18,8 +18,9 @@ export default async function perfil(ctx) {
     if (nombre.value.trim().length < 3) return toast('Escribe tu nombre completo.', 'error');
     try { await actualizarMiPerfil(ctx.uid, { nombre_completo: nombre.value.trim(), telefono: tel.value.trim() || null }); toast('Datos guardados.', 'ok'); ctx.refrescar(); } catch (er) { toast(mensajeError(er), 'error'); }
   }); } },
-    h('div', { class: 'form-grid' }, campoForm('pf_n', 'Nombre completo', nombre), campoForm('pf_t', 'Teléfono', tel),
-      campoForm('pf_e', 'Correo electrónico', h('input', { class: 'input', value: p.email, readonly: true, disabled: true }), 'Para cambiar tu correo contacta al administrador.'),
+    h('div', { class: 'form-grid' }, campoForm('pf_n', 'Nombre completo', nombre),
+      campoOcultable('pf_t', 'Teléfono', tel),
+      campoOcultable('pf_e', 'Correo electrónico', h('input', { class: 'input', value: p.email, readonly: true, disabled: true }), 'Para cambiar tu correo contacta al administrador.'),
       h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'Tipo de cuenta'), h('div', null, h('span', { class: 'badge navy plain' }, ROLES[p.rol])))), bDatos);
 
   // ---- contraseña -----------------------------------------------------------------------------------------------
@@ -36,12 +37,16 @@ export default async function perfil(ctx) {
   // ---- 2FA --------------------------------------------------------------------------------------------------------------------
   const zonaMFA = h('div', { class: 'stack' });
   if (verificado) {
-    zonaMFA.append(banner('ok', h('p', null, h('strong', null, 'Verificación en dos pasos activada.'), ' Al iniciar sesión te pediremos el código de tu app autenticadora.')),
-      h('div', null, h('button', { class: 'btn btn-danger btn-sm', onclick: async () => {
+    zonaMFA.append(banner('ok', h('p', null, h('strong', null, 'Verificación en dos pasos activada.'), ' Al iniciar sesión te pediremos el código de tu app autenticadora.')));
+    if (p.rol === 'cliente') {
+      zonaMFA.append(h('div', null, h('button', { class: 'btn btn-danger btn-sm', onclick: async () => {
         if (!(await confirmar('Tu cuenta quedará protegida solo con contraseña. ¿Desactivar la verificación en dos pasos?', { titulo: 'Desactivar 2FA', si: 'Desactivar', peligro: true }))) return;
         const { error } = await sb.auth.mfa.unenroll({ factorId: verificado.id });
         if (error) return toast(mensajeError(error), 'error'); toast('Verificación desactivada.', 'ok'); ctx.refrescar();
       } }, 'Desactivar')));
+    } else {
+      zonaMFA.append(banner('info', 'La verificación en dos pasos es obligatoria para tu rol y no se puede desactivar desde aquí. Si cambiaste de teléfono y perdiste el acceso a tu app autenticadora, quien administre el proyecto de Supabase puede quitarte el factor desde Authentication → Users → (tu usuario) → Multi-Factor Authentication, para que puedas volver a activarla.'));
+    }
   } else {
     if (p.rol !== 'cliente') zonaMFA.append(banner('warn', 'Como personal con acceso a expedientes de otras personas, te recomendamos fuertemente activar la verificación en dos pasos.'));
     zonaMFA.append(h('p', null, 'Agrega una capa extra de seguridad: además de tu contraseña, necesitarás un código temporal de una app como Google Authenticator, Microsoft Authenticator o Authy.'),

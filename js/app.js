@@ -8,7 +8,7 @@ import * as auth from './pages/auth.js';
 if (window.top !== window.self) { document.documentElement.replaceChildren(); throw new Error('Marco no permitido'); }
 
 const raiz = document.getElementById('app');
-const estado = { sesion: null, perfil: null, mfaPendiente: false, recuperando: false, listo: false };
+const estado = { sesion: null, perfil: null, mfaPendiente: false, mfaObligatorioPendiente: false, recuperando: false, listo: false };
 let ticket = 0;
 
 export const ir = (hash) => { if (location.hash === hash) render(); else location.hash = hash; };
@@ -41,13 +41,19 @@ function resolver(seg, rol) {
 
 // ---- Sesión --------------------------------------------------------------------------------------------------------
 async function cargarSesion() {
-  estado.perfil = null; estado.mfaPendiente = false;
+  estado.perfil = null; estado.mfaPendiente = false; estado.mfaObligatorioPendiente = false;
   if (!estado.sesion) return;
   try {
     const { data } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
     estado.mfaPendiente = !!data && data.nextLevel === 'aal2' && data.currentLevel !== 'aal2';
     if (estado.mfaPendiente) return;
     estado.perfil = await perfilPropio(estado.sesion.user.id);
+    // Personal con acceso a expedientes de otras personas: la verificación en dos pasos es obligatoria.
+    if (estado.perfil && estado.perfil.rol !== 'cliente') {
+      const { data: fac } = await sb.auth.mfa.listFactors();
+      const verificado = (fac && fac.all || []).some((f) => f.factor_type === 'totp' && f.status === 'verified');
+      estado.mfaObligatorioPendiente = !verificado;
+    }
   } catch (e) { console.error(e); }
 }
 
@@ -121,6 +127,7 @@ async function render() {
   }
   if (estado.recuperando) return montar(raiz, auth.nuevaClave({ alTerminar: () => { estado.recuperando = false; location.hash = '#/'; cargarSesion().then(render); } }));
   if (estado.mfaPendiente) return montar(raiz, auth.retoMFA({ alTerminar: async () => { await cargarSesion(); location.hash = '#/'; render(); } }));
+  if (estado.mfaObligatorioPendiente) return montar(raiz, auth.mfaObligatorio({ alTerminar: async () => { await cargarSesion(); render(); } }));
   if (!estado.perfil) {
     return montar(raiz, h('div', { class: 'acceso-form', style: 'min-height:100vh' }, h('div', { class: 'acceso-caja' },
       h('h1', null, 'Cuenta no disponible'), h('span', { class: 'rule' }),

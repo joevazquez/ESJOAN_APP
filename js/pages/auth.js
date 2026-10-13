@@ -177,6 +177,36 @@ export function retoMFA({ alTerminar }) {
     h('div', { class: 'alt' }, h('a', { href: '#', onclick: async (e) => { e.preventDefault(); await sb.auth.signOut(); } }, 'Cancelar y salir')));
 }
 
+// ---- 2FA obligatorio para personal (broker/admin): se activa antes de dejarlos entrar -----------------------------------------
+export function mfaObligatorio({ alTerminar }) {
+  const zona = h('div', { class: 'stack' }, h('p', { class: 'sub' }, 'Preparando tu código QR…'));
+  (async () => {
+    try {
+      const { data: fac } = await sb.auth.mfa.listFactors();
+      for (const f of (fac && fac.all || []).filter((x) => x.factor_type === 'totp' && x.status !== 'verified')) {
+        await sb.auth.mfa.unenroll({ factorId: f.id }); // limpia intentos previos sin terminar
+      }
+      const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'ESJOAN ' + new Date().toISOString().slice(0, 10) });
+      if (error) throw error;
+      const cod = h('input', { class: 'input', inputmode: 'numeric', maxlength: 6, autocomplete: 'one-time-code', 'aria-label': 'Código de 6 dígitos', placeholder: '000000' });
+      const btn = h('button', { class: 'btn btn-primary btn-block', onclick: () => conBoton(btn, async () => {
+        if (!/^\d{6}$/.test(cod.value.trim())) return toast('Escribe los 6 dígitos.', 'error');
+        const r = await sb.auth.mfa.challengeAndVerify({ factorId: data.id, code: cod.value.trim() });
+        if (r.error) return toast('Código incorrecto. Revisa la hora de tu teléfono e inténtalo de nuevo.', 'error');
+        toast('Verificación en dos pasos activada.', 'ok'); alTerminar();
+      }) }, 'Verificar y activar');
+      zona.replaceChildren(
+        h('ol', { class: 'stack', style: 'padding-left:18px' },
+          h('li', null, 'Abre tu app autenticadora (Google Authenticator, Microsoft Authenticator, Authy…) y agrega una cuenta escaneando este código QR.',
+            h('div', { style: 'margin-top:10px' }, h('div', { class: 'qr' }, h('img', { src: data.totp.qr_code, alt: 'Código QR para tu app autenticadora' })))),
+          h('li', null, 'Si no puedes escanear, escribe esta clave manualmente: ', h('code', { class: 'mono', style: 'user-select:all;word-break:break-all' }, data.totp.secret)),
+          h('li', null, 'Escribe el código de 6 dígitos que muestra la app:', h('div', { class: 'row', style: 'margin-top:8px' }, cod, btn))));
+    } catch (e) { zona.replaceChildren(banner('bad', mensajeError(e))); }
+  })();
+  return caja('Activa tu verificación en dos pasos', 'Por tu rol, necesitas tenerla activa para continuar. Solo toma un minuto.', zona,
+    h('div', { class: 'alt' }, h('a', { href: '#', onclick: async (e) => { e.preventDefault(); await sb.auth.signOut(); } }, 'Cerrar sesión')));
+}
+
 export function pantallaConfig() {
   return h('div', { class: 'acceso-form', style: 'min-height:100vh' }, h('div', { class: 'acceso-caja' },
     h('h1', null, 'Falta configurar Supabase'), h('span', { class: 'rule' }),
