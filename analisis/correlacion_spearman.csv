@@ -1,0 +1,7 @@
+,tasa_pct,aforo_max_pct,plazo_min,plazo_max,incremento_anual,comision_pct
+tasa_pct,1.0,0.595,-0.026,0.042,0.172,0.214
+aforo_max_pct,0.595,1.0,-0.039,0.078,0.165,-0.052
+plazo_min,-0.026,-0.039,1.0,0.905,-0.174,0.036
+plazo_max,0.042,0.078,0.905,1.0,0.117,0.079
+incremento_anual,0.172,0.165,-0.174,0.117,1.0,0.181
+comision_pct,0.214,-0.052,0.036,0.079,0.181,1.0
