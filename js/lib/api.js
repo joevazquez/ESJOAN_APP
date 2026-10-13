@@ -129,7 +129,8 @@ export const guardarTipoDocumento = async (d) => ok(await sb.from('tipos_documen
 export const eliminarTipoDocumento = async (clave) => ok(await sb.from('tipos_documento').delete().eq('clave', clave));
 export const auditoria = async () => ok(await sb.from('auditoria').select('*').order('created_at', { ascending: false }).limit(200));
 export const docsPendientes = async () => ok(await sb.from('documentos').select('expediente_id').eq('estado', 'pendiente').limit(5000));
-export const listarClientes = async () => ok(await sb.from('profiles').select('id,nombre_completo,email').eq('rol', 'cliente').eq('activo', true).order('nombre_completo').limit(1000));
+/** Búsqueda acotada de clientes (nombre o correo, 3+ letras) para elegir a quién crear un expediente nuevo. Solo broker/admin. */
+export const buscarClientesParaExpediente = async (q) => ok(await sb.rpc('buscar_clientes_para_expediente', { p_q: q }));
 
 // ---- Análisis de capacidad de pago (estado de cuenta + Buró) ------------------------------------------
 export const obtenerAnalisisFinanciero = async (expId) => ok(await sb.from('analisis_financiero').select('*').eq('expediente_id', expId).maybeSingle());

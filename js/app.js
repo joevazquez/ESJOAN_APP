@@ -18,7 +18,7 @@ export const consulta = () => new URLSearchParams((location.hash.split('?')[1]) 
 // ---- Rutas -------------------------------------------------------------------------------------------------
 const RUTAS = [
   { p: [], m: 'inicio' },
-  { p: ['nuevo'], m: 'nuevo', roles: ['cliente', 'admin'] },
+  { p: ['nuevo'], m: 'nuevo', roles: ['broker', 'admin'] },
   { p: ['expediente', ':id'], m: 'expediente' },
   { p: ['expediente', ':id', ':tab'], m: 'expediente' },
   { p: ['perfil'], m: 'perfil' },
@@ -83,7 +83,7 @@ function armarIdle() {
 // ---- Estructura (menú lateral) ----------------------------------------------------------------------------------------
 function menuPara(rol) {
   const base = [{ t: rol === 'cliente' ? 'Mis expedientes' : 'Expedientes', h: '#/', i: 'carpeta', k: '' }];
-  if (rol === 'cliente') base.push({ t: 'Nuevo expediente', h: '#/nuevo', i: 'mas', k: 'nuevo' });
+  if (rol === 'broker' || rol === 'admin') base.push({ t: 'Nuevo expediente', h: '#/nuevo', i: 'mas', k: 'nuevo' });
   const adm = rol === 'admin' ? [
     { sec: 'Administración' },
     { t: 'Usuarios y roles', h: '#/admin/usuarios', i: 'usuarios', k: 'admin/usuarios' },

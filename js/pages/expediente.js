@@ -15,7 +15,9 @@ export default async function expediente(ctx) {
   const tab = ctx.params.tab || 'resumen';
   const [tipos, docs, perfiles] = await Promise.all([
     api.tiposDocumento(), api.documentos(id),
-    esStaff ? api.perfilesPorId([exp.cliente_id, exp.broker_id]) : Promise.resolve({}),
+    // El cliente también puede ver el perfil de SU broker asignado (nombre, correo, teléfono):
+    // la política profiles_select de la base ya lo permite para ese caso.
+    api.perfilesPorId(esStaff ? [exp.cliente_id, exp.broker_id] : [exp.broker_id]),
   ]);
   const cliente = perfiles[exp.cliente_id] || (esStaff ? null : ctx.perfil);
   const broker = perfiles[exp.broker_id] || null;
@@ -89,7 +91,13 @@ function tabResumen(d) {
 const kpi = (k, v, s) => h('div', { class: 'kpi' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v), s ? h('div', { class: 's' }, s) : null);
 
 function panelCliente(d) {
-  const { exp, av } = d;
+  const { exp, av, broker } = d;
+  const tarjetaBroker = broker
+    ? hoja('Tu broker asignado', h('dl', { class: 'dl' },
+        h('dt', null, 'Nombre'), h('dd', null, broker.nombre_completo || broker.email),
+        h('dt', null, 'Correo'), h('dd', null, h('a', { href: `mailto:${broker.email}` }, broker.email)),
+        h('dt', null, 'Teléfono'), h('dd', null, broker.telefono ? h('a', { href: `tel:${broker.telefono}` }, broker.telefono) : h('span', { class: 'muted' }, 'No registrado'))))
+    : hoja('Tu broker asignado', h('p', { class: 'small muted' }, 'Todavía no se te ha asignado un broker. En cuanto lo tengas, aquí verás su contacto.'));
   let titulo = '¿Qué sigue?'; let texto; let cta = null;
   switch (exp.estatus) {
     case 'creado':
@@ -103,7 +111,8 @@ function panelCliente(d) {
   }
   return h('aside', { class: 'stack first-mobile' }, hoja(titulo, h('div', { class: 'stack' }, h('p', null, texto), cta)),
     d.av.obligatorios ? hoja('Documentación', h('div', { class: 'stack' }, h('div', { class: 'row between' }, h('strong', null, `${d.av.entregados} de ${d.av.obligatorios}`), h('span', { class: 'muted small' }, 'obligatorios entregados')),
-      progreso2(d.av.entregados, d.av.obligatorios))) : null);
+      progreso2(d.av.entregados, d.av.obligatorios))) : null,
+    tarjetaBroker);
 }
 function progreso2(n, total) {
   const barra = h('span'); barra.style.width = (total ? (n / total) * 100 : 0) + '%';
