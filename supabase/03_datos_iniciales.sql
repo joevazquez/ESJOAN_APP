@@ -2,9 +2,9 @@
 --  ESJOAN · Expedientes hipotecarios
 --  03 · DATOS INICIALES: catálogo de documentos y bancos/tarifas
 --
---  Los bancos se cargan con la "foto" de cada Excel que subiste (tasas vigentes
---  y factores). Están marcados como NO verificados: revisa cada uno en la app
---  (Administración → Bancos) y márcalo como verificado. Idempotente.
+--  Los datos que contiene cada excel de cada uno de los bancos, además de que los datos de cada no
+--  son independientes y los datos del banco pueden cambiar con el tiempo, así mismo se ve la documentación 
+--  que cada banco solicita para poder iniciar un expediente hipotecario
 -- =====================================================================
 
 insert into public.tipos_documento (clave, nombre, descripcion, obligatorio, aplica_tipos, orden) values
