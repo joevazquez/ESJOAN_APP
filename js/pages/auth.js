@@ -78,9 +78,11 @@ function avisoPrivacidad() {
   modal({
     titulo: 'Aviso de privacidad', ancho: false,
     cuerpo: h('div', { class: 'small' },
-      h('p', null, 'ESJOAN Soluciones Inmobiliarias recabará tus datos personales, financieros y documentos (identificación, comprobantes de ingresos, estados de cuenta, etc.) con la única finalidad de integrar y dar seguimiento a tu solicitud de crédito hipotecario, y de compartirlos con las instituciones financieras que tú autorices para ese trámite.'),
-      h('p', null, 'Tus documentos se almacenan cifrados y solo pueden consultarlos tú, el broker que tenga asignado tu expediente y el personal administrativo autorizado. Puedes ejercer tus derechos de acceso, rectificación, cancelación y oposición (ARCO) escribiendo al correo de contacto de ESJOAN.'),
-      h('p', { class: 'muted' }, '[Texto de ejemplo: sustitúyelo por el aviso de privacidad integral que valide tu asesor legal conforme a la LFPDPPP.]')),
+      h('p', null, h('strong', null, 'Soluciones Inmobiliarias Hipotecarias SA de CV'), ', con domicilio en Mónaco 253, int. 1, Col. María del Carmen, Alcaldía Benito Juárez, Ciudad de México, C.P. 03540, es responsable de recabar tus datos personales y de su protección, conforme a esta plataforma de gestión de expedientes de crédito hipotecario.'),
+      h('p', null, 'Recabamos tu nombre, correo y teléfono; datos financieros (ingresos, deuda, score y banda de riesgo que estima el sistema a partir de tus documentos, siempre revisados por tu broker); y los documentos que subas a tu expediente (identificación, comprobantes de ingresos, estados de cuenta, reporte de Buró de Crédito, entre otros).'),
+      h('p', null, 'La única finalidad por la que tratamos tus datos es integrar y dar seguimiento a tu solicitud de crédito hipotecario, y compartirlos con las instituciones financieras que tú autorices para ese trámite. No usamos tus datos para mercadotecnia, publicidad ni ningún otro fin.'),
+      h('p', null, 'Tus documentos se guardan en un espacio privado en Supabase (nuestro proveedor de base de datos y almacenamiento, con servidores en Estados Unidos, que actúa como encargado de tus datos) y solo se abren con enlaces temporales que expiran en 90 segundos. Solo tú, el broker que tenga asignado tu expediente y el personal administrativo autorizado pueden consultarlos.'),
+      h('p', null, 'Puedes ejercer tus derechos de acceso, rectificación, cancelación y oposición (ARCO), así como revocar tu consentimiento, escribiendo a ', h('a', { href: 'mailto:esjoan_soluciones@gmail.com' }, 'esjoan_soluciones@gmail.com'), '. Responderemos en un plazo máximo de 20 días hábiles.')),
     acciones: [{ texto: 'Entendido', clase: 'btn-primary', onclick: (c) => c() }],
   });
 }
