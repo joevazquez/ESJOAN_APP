@@ -62,6 +62,7 @@ export const asignarAvaluo = (exp, valuador, fecha) => sb.rpc('asignar_avaluo', 
 export const asignarFirma = (exp, fechaIso, notaria) => sb.rpc('asignar_firma', { p_expediente: exp, p_fecha: fechaIso, p_notaria: notaria || null }).then(ok);
 export const confirmarFirma = (exp) => sb.rpc('confirmar_firma', { p_expediente: exp }).then(ok);
 export const cambiarEstatusAdmin = (exp, estatus, motivo) => sb.rpc('cambiar_estatus_admin', { p_expediente: exp, p_estatus: estatus, p_motivo: motivo }).then(ok);
+export const cancelarExpediente = (exp, motivo) => sb.rpc('cancelar_expediente', { p_expediente: exp, p_motivo: motivo || null }).then(ok);
 export const historial = async (exp) => ok(await sb.from('expediente_historial').select('*').eq('expediente_id', exp).order('created_at', { ascending: false }).limit(300));
 export const notas = async (exp) => ok(await sb.from('expediente_notas').select('*').eq('expediente_id', exp).order('created_at', { ascending: false }).limit(300));
 export const agregarNota = async (exp, autor, nota) => ok(await sb.from('expediente_notas').insert({ expediente_id: exp, autor_id: autor, nota }).select().single());
@@ -129,7 +130,8 @@ export const guardarTipoDocumento = async (d) => ok(await sb.from('tipos_documen
 export const eliminarTipoDocumento = async (clave) => ok(await sb.from('tipos_documento').delete().eq('clave', clave));
 export const auditoria = async () => ok(await sb.from('auditoria').select('*').order('created_at', { ascending: false }).limit(200));
 export const docsPendientes = async () => ok(await sb.from('documentos').select('expediente_id').eq('estado', 'pendiente').limit(5000));
-export const listarClientes = async () => ok(await sb.from('profiles').select('id,nombre_completo,email').eq('rol', 'cliente').eq('activo', true).order('nombre_completo').limit(1000));
+/** Búsqueda acotada de clientes (nombre o correo, 3+ letras) para elegir a quién crear un expediente nuevo. Solo broker/admin. */
+export const buscarClientesParaExpediente = async (q) => ok(await sb.rpc('buscar_clientes_para_expediente', { p_q: q }));
 
 // ---- Análisis de capacidad de pago (estado de cuenta + Buró) ------------------------------------------
 export const obtenerAnalisisFinanciero = async (expId) => ok(await sb.from('analisis_financiero').select('*').eq('expediente_id', expId).maybeSingle());

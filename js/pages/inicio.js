@@ -1,6 +1,6 @@
 import { listarExpedientes, buscarExpedientes, contarExpedientesPorEstatus, listarBrokers } from '../lib/api.js';
 import { h, mxn, fecha, folio, vacio, icono, debounce } from '../lib/ui.js';
-import { ESTATUS, TIPOS } from '../lib/constantes.js';
+import { ESTATUS, TIPOS, CANCELADO } from '../lib/constantes.js';
 import { badgeEstatus, cabecera, progreso } from '../lib/comun.js';
 
 export default async function inicio(ctx) {
@@ -96,7 +96,8 @@ async function vistaStaff(ctx) {
   const busca = h('input', { class: 'input', type: 'search', placeholder: 'Buscar por folio, nombre o correo…', 'aria-label': 'Buscar',
     oninput: debounce((e) => { f.q = e.target.value.trim(); f.pagina = 0; pintar(); }) });
   const selEstatus = h('select', { class: 'input', 'aria-label': 'Filtrar por estatus', onchange: (e) => { f.estatus = e.target.value; f.pagina = 0; pintar(); } },
-    h('option', { value: '' }, 'Todos los estatus'), ESTATUS.map((s) => h('option', { value: s.clave }, s.largo)));
+    h('option', { value: '' }, 'Todos los estatus'), ESTATUS.map((s) => h('option', { value: s.clave }, s.largo)),
+    h('option', { value: 'cancelado' }, CANCELADO.largo));
   const selBroker = esAdmin ? h('select', { class: 'input', 'aria-label': 'Filtrar por broker', onchange: (e) => { f.broker = e.target.value; f.pagina = 0; pintar(); } },
     h('option', { value: '' }, 'Todos los brokers'), h('option', { value: '_sin' }, 'Sin broker asignado'),
     brokers.map((b) => h('option', { value: b.id }, b.nombre_completo || b.email))) : null;

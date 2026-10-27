@@ -7,7 +7,16 @@ export const ESTATUS = [
   { clave: 'firmado', corto: 'Firmado', largo: 'Firmado', desc: '¡Felicidades! Tu crédito hipotecario quedó firmado.' },
 ];
 export const idxEstatus = (clave) => Math.max(0, ESTATUS.findIndex((e) => e.clave === clave));
-export const etiquetaEstatus = (clave) => (ESTATUS.find((e) => e.clave === clave) || { largo: clave }).largo;
+
+// "cancelado" es un estatus terminal especial: NO va dentro de ESTATUS porque
+// ese arreglo maneja el stepper visual (cumbrera), el % de progreso y los
+// tiles de KPI, todos pensados como una línea recta de pasos. Se maneja aparte.
+export const CANCELADO = { clave: 'cancelado', corto: 'Cancelado', largo: 'Expediente cancelado', desc: 'Este expediente fue cancelado y ya no está en proceso.' };
+
+export const etiquetaEstatus = (clave) => {
+  if (clave === 'cancelado') return CANCELADO.largo;
+  return (ESTATUS.find((e) => e.clave === clave) || { largo: clave }).largo;
+};
 
 export const TIPOS = {
   adquisicion: 'Adquisición de vivienda',

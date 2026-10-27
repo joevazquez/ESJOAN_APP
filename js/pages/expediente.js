@@ -1,6 +1,6 @@
 import * as api from '../lib/api.js';
 import { h, mxn, fecha, fechaHora, folio, aNumero, banner, conBoton, toast, confirmar, pedirTexto, modal, icono, vacio, cargando, numero, pct } from '../lib/ui.js';
-import { TIPOS, ESTATUS, EVENTOS, ESTADOS_MX, etiquetaEstatus, idxEstatus } from '../lib/constantes.js';
+import { TIPOS, ESTATUS, EVENTOS, ESTADOS_MX, CANCELADO, etiquetaEstatus, idxEstatus } from '../lib/constantes.js';
 import { badgeEstatus, cabecera, hoja, campoForm, dinero, avanceDocs, progreso } from '../lib/comun.js';
 import { cumbrera } from '../lib/cumbrera.js';
 
@@ -15,7 +15,9 @@ export default async function expediente(ctx) {
   const tab = ctx.params.tab || 'resumen';
   const [tipos, docs, perfiles] = await Promise.all([
     api.tiposDocumento(), api.documentos(id),
-    esStaff ? api.perfilesPorId([exp.cliente_id, exp.broker_id]) : Promise.resolve({}),
+    // El cliente también puede ver el perfil de SU broker asignado (nombre, correo, teléfono):
+    // la política profiles_select de la base ya lo permite para ese caso.
+    api.perfilesPorId(esStaff ? [exp.cliente_id, exp.broker_id] : [exp.broker_id]),
   ]);
   const cliente = perfiles[exp.cliente_id] || (esStaff ? null : ctx.perfil);
   const broker = perfiles[exp.broker_id] || null;
@@ -50,9 +52,12 @@ export default async function expediente(ctx) {
       sub: esStaff ? `${cliente ? (cliente.nombre_completo || cliente.email) : 'Cliente'} · ${broker ? 'Broker: ' + (broker.nombre_completo || broker.email) : 'Sin broker asignado'}` : null,
       acciones: [badgeEstatus(exp.estatus)],
     }),
-    h('section', { class: 'hoja', 'aria-label': 'Avance del expediente' },
-      h('div', { class: 'hoja-body' }, cumbrera(exp.estatus)),
-      h('div', { class: 'estado-actual' }, h('span', { class: 'lead' }, etiquetaEstatus(exp.estatus)), h('span', { class: 'muted' }, ESTATUS[idxEstatus(exp.estatus)].desc), h('span', { class: 'grow' }), h('span', { class: 'small muted' }, 'Actualizado ', fechaHora(exp.estatus_actualizado_en)))),
+    exp.estatus === 'cancelado'
+      ? h('section', { class: 'hoja', 'aria-label': 'Avance del expediente' },
+          h('div', { class: 'estado-actual' }, h('span', { class: 'lead' }, CANCELADO.largo), h('span', { class: 'muted' }, CANCELADO.desc), h('span', { class: 'grow' }), h('span', { class: 'small muted' }, 'Actualizado ', fechaHora(exp.estatus_actualizado_en))))
+      : h('section', { class: 'hoja', 'aria-label': 'Avance del expediente' },
+          h('div', { class: 'hoja-body' }, cumbrera(exp.estatus)),
+          h('div', { class: 'estado-actual' }, h('span', { class: 'lead' }, etiquetaEstatus(exp.estatus)), h('span', { class: 'muted' }, ESTATUS[idxEstatus(exp.estatus)].desc), h('span', { class: 'grow' }), h('span', { class: 'small muted' }, 'Actualizado ', fechaHora(exp.estatus_actualizado_en))))),
     h('div', { style: 'height:24px' }),
     h('nav', { class: 'tabs', 'aria-label': 'Secciones del expediente' }, tabs.map((t) =>
       h('a', { class: 'tab', href: `#/expediente/${id}/${t.k}`, 'aria-current': t.k === tab ? 'page' : null }, t.t, t.n ? h('span', { class: 'count', 'aria-label': `${t.n} pendientes` }, String(t.n)) : null))),
@@ -89,7 +94,13 @@ function tabResumen(d) {
 const kpi = (k, v, s) => h('div', { class: 'kpi' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v), s ? h('div', { class: 's' }, s) : null);
 
 function panelCliente(d) {
-  const { exp, av } = d;
+  const { exp, av, broker } = d;
+  const tarjetaBroker = broker
+    ? hoja('Tu broker asignado', h('dl', { class: 'dl' },
+        h('dt', null, 'Nombre'), h('dd', null, broker.nombre_completo || broker.email),
+        h('dt', null, 'Correo'), h('dd', null, h('a', { href: `mailto:${broker.email}` }, broker.email)),
+        h('dt', null, 'Teléfono'), h('dd', null, broker.telefono ? h('a', { href: `tel:${broker.telefono}` }, broker.telefono) : h('span', { class: 'muted' }, 'No registrado'))))
+    : hoja('Tu broker asignado', h('p', { class: 'small muted' }, 'Todavía no se te ha asignado un broker. En cuanto lo tengas, aquí verás su contacto.'));
   let titulo = '¿Qué sigue?'; let texto; let cta = null;
   switch (exp.estatus) {
     case 'creado':
@@ -99,11 +110,13 @@ function panelCliente(d) {
     case 'documentacion_completa': texto = 'Aprobamos toda tu documentación. El siguiente paso es el avalúo del inmueble, que tu broker asignará.'; break;
     case 'en_avaluo': texto = `El avalúo está asignado${exp.avaluo_valuador ? ' con ' + exp.avaluo_valuador : ''}${exp.avaluo_fecha ? ' para el ' + fecha(exp.avaluo_fecha) : ''}.`; break;
     case 'en_proceso_firma': texto = `Tu firma está programada para el ${fechaHora(exp.firma_fecha)}${exp.firma_notaria ? ' en ' + exp.firma_notaria : ''}. Lleva identificación oficial vigente.`; break;
+    case 'cancelado': titulo = 'Expediente cancelado'; texto = 'Este expediente fue cancelado. Si crees que esto es un error, contacta a tu broker o a ESJOAN.'; break;
     default: titulo = '¡Felicidades!'; texto = 'Tu crédito hipotecario quedó firmado. Gracias por confiar en ESJOAN.';
   }
   return h('aside', { class: 'stack first-mobile' }, hoja(titulo, h('div', { class: 'stack' }, h('p', null, texto), cta)),
     d.av.obligatorios ? hoja('Documentación', h('div', { class: 'stack' }, h('div', { class: 'row between' }, h('strong', null, `${d.av.entregados} de ${d.av.obligatorios}`), h('span', { class: 'muted small' }, 'obligatorios entregados')),
-      progreso2(d.av.entregados, d.av.obligatorios))) : null);
+      progreso2(d.av.entregados, d.av.obligatorios))) : null,
+    tarjetaBroker);
 }
 function progreso2(n, total) {
   const barra = h('span'); barra.style.width = (total ? (n / total) * 100 : 0) + '%';
@@ -112,8 +125,19 @@ function progreso2(n, total) {
 
 // ---- Acciones del broker / administrador ----------------------------------------------------------------------------
 function panelAcciones(d) {
-  const { exp, esAdmin } = d;
+  const { exp, esAdmin, ctx } = d;
   const bloques = [];
+  const puedeCancelar = exp.estatus !== 'cancelado' && exp.estatus !== 'firmado' && (esAdmin || exp.broker_id === ctx.uid);
+
+  if (puedeCancelar) {
+    const bCanc = h('button', { class: 'btn btn-danger btn-sm', onclick: async () => {
+      if (!(await confirmar('¿Seguro que quieres cancelar este expediente? No se borra nada: queda archivado con todo su historial y documentos, pero deja de aparecer en la lista normal.', { titulo: 'Cancelar expediente', si: 'Sí, cancelar', peligro: true }))) return;
+      const motivo = await pedirTexto({ titulo: 'Motivo de la cancelación', etiqueta: 'Motivo', ayuda: 'Queda registrado en el historial del expediente (opcional).', si: 'Cancelar expediente', requerido: false, multilinea: false });
+      if (motivo === null) return;
+      try { await api.cancelarExpediente(exp.id, motivo); toast('Expediente cancelado.', 'ok'); d.recargar(); } catch (e) { toast(api.mensajeError(e), 'error'); }
+    } }, icono('basura'), 'Cancelar expediente');
+    bloques.push(hoja('Cancelar expediente', h('div', { class: 'stack' }, h('p', { class: 'small muted' }, 'Archiva el expediente: se conserva todo (documentos, historial, análisis), pero deja de verse en la lista activa.'), bCanc)));
+  }
 
   if (esAdmin) {
     const sel = h('select', { class: 'input', 'aria-label': 'Broker asignado' }, h('option', { value: '' }, 'Sin asignar'));
@@ -158,7 +182,9 @@ function panelAcciones(d) {
 
   // Corrección manual (solo admin)
   if (esAdmin) {
-    const sel = h('select', { class: 'input' }, ESTATUS.map((s) => h('option', { value: s.clave, selected: s.clave === exp.estatus }, s.largo)));
+    const sel = h('select', { class: 'input' },
+      ESTATUS.map((s) => h('option', { value: s.clave, selected: s.clave === exp.estatus }, s.largo)),
+      h('option', { value: 'cancelado', selected: exp.estatus === 'cancelado' }, CANCELADO.largo));
     const bC = h('button', { class: 'btn btn-danger btn-sm', onclick: async () => {
       if (sel.value === exp.estatus) return toast('Ese ya es el estatus actual.', 'error');
       const motivo = await pedirTexto({ titulo: 'Corregir estatus', etiqueta: 'Motivo de la corrección', ayuda: 'Queda registrado en el historial y la auditoría.', si: 'Aplicar' });

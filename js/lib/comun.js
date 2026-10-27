@@ -1,7 +1,7 @@
 import { h, icono } from './ui.js';
 import { etiquetaEstatus, idxEstatus } from './constantes.js';
 
-const CLASE_ESTATUS = { creado: '', en_revision_documentacion: 'warn', documentacion_completa: 'gold', en_avaluo: 'navy', en_proceso_firma: 'navy', firmado: 'ok' };
+const CLASE_ESTATUS = { creado: '', en_revision_documentacion: 'warn', documentacion_completa: 'gold', en_avaluo: 'navy', en_proceso_firma: 'navy', firmado: 'ok', cancelado: 'bad' };
 export const badgeEstatus = (clave) => h('span', { class: 'badge ' + (CLASE_ESTATUS[clave] || '') }, etiquetaEstatus(clave));
 
 export function cabecera({ kicker, titulo, sub, acciones }) {
