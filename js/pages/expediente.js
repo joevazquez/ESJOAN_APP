@@ -57,7 +57,7 @@ export default async function expediente(ctx) {
           h('div', { class: 'estado-actual' }, h('span', { class: 'lead' }, CANCELADO.largo), h('span', { class: 'muted' }, CANCELADO.desc), h('span', { class: 'grow' }), h('span', { class: 'small muted' }, 'Actualizado ', fechaHora(exp.estatus_actualizado_en))))
       : h('section', { class: 'hoja', 'aria-label': 'Avance del expediente' },
           h('div', { class: 'hoja-body' }, cumbrera(exp.estatus)),
-          h('div', { class: 'estado-actual' }, h('span', { class: 'lead' }, etiquetaEstatus(exp.estatus)), h('span', { class: 'muted' }, ESTATUS[idxEstatus(exp.estatus)].desc), h('span', { class: 'grow' }), h('span', { class: 'small muted' }, 'Actualizado ', fechaHora(exp.estatus_actualizado_en))))),
+          h('div', { class: 'estado-actual' }, h('span', { class: 'lead' }, etiquetaEstatus(exp.estatus)), h('span', { class: 'muted' }, ESTATUS[idxEstatus(exp.estatus)].desc), h('span', { class: 'grow' }), h('span', { class: 'small muted' }, 'Actualizado ', fechaHora(exp.estatus_actualizado_en)))),
     h('div', { style: 'height:24px' }),
     h('nav', { class: 'tabs', 'aria-label': 'Secciones del expediente' }, tabs.map((t) =>
       h('a', { class: 'tab', href: `#/expediente/${id}/${t.k}`, 'aria-current': t.k === tab ? 'page' : null }, t.t, t.n ? h('span', { class: 'count', 'aria-label': `${t.n} pendientes` }, String(t.n)) : null))),
