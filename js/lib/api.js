@@ -132,6 +132,28 @@ export async function eliminarDocumento(doc) {
 }
 
 /**
+ * Manda el Excel/xlsm propio de un banco (su simulador interno, tal cual se
+ * lo dieron al broker, sin reformatear) a la Edge Function
+ * `importar-tasas-banco`, que usa Claude para localizar la tabla de tasas
+ * vigente y devolverla ya en el formato de fila que usa el editor de bancos
+ * (mismas columnas que VACIA()/COLS en admin_banco.js). Devuelve
+ * { filas, avisos, hojasLeidas } — el admin sigue revisando/editando las
+ * filas en pantalla y confirmando con "Guardar tarifas" antes de que se
+ * guarde nada.
+ */
+export async function importarTasasBancoIA(file) {
+  const { data: { session } } = await sb.auth.getSession();
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/importar-tasas-banco`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream', Authorization: `Bearer ${session?.access_token || ''}` },
+    body: file,
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || `Error ${resp.status}`);
+  return data;
+}
+
+/**
  * Pide a la Edge Function `extraer-pdf` que lea un documento (Buró de
  * Crédito o estado de cuenta) con Claude (Anthropic) y devuelva los datos
  * ya estructurados. Reemplaza la extracción por regex de lib/extraccion.js:

@@ -84,6 +84,27 @@ function filasDesdeMatriz(m) {
   }
   return out;
 }
+/**
+ * Convierte lo que devuelve la Edge Function `importar-tasas-banco` (Claude
+ * leyendo el Excel propio del banco) al mismo shape de fila que usa la
+ * cuadrícula de edición, por si algún tipo vino como texto o algún valor no
+ * encaja en las listas conocidas.
+ */
+function filasDesdeIA(brutas) {
+  return (brutas || []).map((r) => {
+    const f = { ...VACIA(), ...r };
+    for (const c of COLS) if ((c.t === 'pct' || c.t === 'num') && f[c.k] != null) f[c.k] = Number(f[c.k]);
+    if (f.plazo_min != null) f.plazo_min = Math.round(Number(f.plazo_min));
+    if (f.plazo_max != null) f.plazo_max = Math.round(Number(f.plazo_max));
+    if (f.incremento_anios != null) f.incremento_anios = Math.round(Number(f.incremento_anios)) || 0;
+    if (!DESTINOS.includes(f.destino)) f.destino = '*';
+    if (!PROGS.includes(f.programa)) f.programa = '*';
+    if (f.esquema !== 'fijo' && f.esquema !== 'creciente') f.esquema = 'fijo';
+    f.incremento_anual = f.incremento_anual || 0;
+    f.activo = f.activo !== false;
+    return f;
+  });
+}
 function parseDelim(texto) {
   const primera = texto.split(/\r?\n/, 1)[0];
   const sep = [['\t', primera.split('\t').length], [';', primera.split(';').length], [',', primera.split(',').length]].sort((a, b) => b[1] - a[1])[0][0];
@@ -257,6 +278,18 @@ export default async function bancoEditor(ctx) {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
     try { await aplicarImportadas(filasDesdeMatriz(await leerArchivo(f)), f.name); } catch (er) { toast(er.message || 'No se pudo leer el archivo.', 'error', 8000); }
   } });
+  const archivoIA = h('input', { type: 'file', accept: '.xlsx,.xlsm,.xls', class: 'sr-only', id: 'imp_arch_ia', onchange: async (e) => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    avisos.replaceChildren();
+    const quitar = toast('Leyendo el archivo del banco con IA… puede tardar hasta medio minuto.', 'info', 30000);
+    try {
+      const res = await api.importarTasasBancoIA(f);
+      quitar?.();
+      const nuevas = filasDesdeIA(res.filas);
+      if (res.avisos?.length) avisos.replaceChildren(banner('warn', h('p', null, h('strong', null, 'Notas de la IA sobre esta lectura: ')), res.avisos.map((a) => h('div', { class: 'small', style: 'color:var(--muted)' }, '• ', a))));
+      await aplicarImportadas(nuevas, `${f.name} (leído con IA)`);
+    } catch (er) { quitar?.(); toast(er.message || 'No se pudo leer el archivo con IA.', 'error', 9000); }
+  } });
   const pegar = () => {
     const ta = h('textarea', { class: 'input', style: 'min-height:220px;font-family:ui-monospace,monospace;font-size:.82rem', placeholder: 'Copia desde Excel (incluye la fila de encabezados) y pega aquí…', 'aria-label': 'Datos pegados' });
     modal({ titulo: 'Pegar tarifas desde Excel', ancho: true, cuerpo: h('div', { class: 'stack' }, h('p', { class: 'small muted' }, 'La primera fila debe tener los encabezados de la plantilla (producto, destino, programa, esquema, perfil, tasa, plazo_min, plazo_max…). Tasas y aforos van en puntos porcentuales: 10.25 significa 10.25 %.'), ta),
@@ -280,6 +313,7 @@ export default async function bancoEditor(ctx) {
     h('div', { class: 'row' },
       h('button', { class: 'btn btn-outline btn-sm', onclick: () => { filas.push(VACIA()); limite = filas.length; filtro = ''; buscar.value = ''; marcar(); pintar(); } }, icono('mas'), 'Agregar fila'),
       h('label', { class: 'btn btn-outline btn-sm', for: 'imp_arch', tabindex: 0, onkeydown: (e) => { if (e.key === 'Enter') archivo.click(); } }, icono('subir'), 'Importar Excel / CSV'), archivo,
+      h('label', { class: 'btn btn-primary btn-sm', for: 'imp_arch_ia', tabindex: 0, title: 'Sube el simulador del banco tal cual te lo mandaron (xlsx/xlsm); la IA busca y extrae la tabla de tasas.', onkeydown: (e) => { if (e.key === 'Enter') archivoIA.click(); } }, icono('subir'), 'Importar con IA (archivo del banco)'), archivoIA,
       h('button', { class: 'btn btn-outline btn-sm', onclick: pegar }, icono('excel'), 'Pegar desde Excel'),
       h('button', { class: 'btn btn-outline btn-sm', onclick: () => descargarExcel(filas.length ? filas : [VACIA()], `tarifas_${b.clave}`) }, icono('descargar'), 'Descargar Excel'),
       h('span', { class: 'grow' }), bGuardar),
