@@ -185,13 +185,35 @@ Deno.serve(async (req) => {
       return new Response('Correo de creación enviado', { status: 200 });
     }
 
-    // esCancelacion
+    // esCancelacion — busca el motivo que haya quedado registrado en el
+    // historial al cancelar (lo guarda cancelar_expediente() como "detalle"
+    // del evento "cambio_estatus" hacia "cancelado").
+    const { data: ultimoHist } = await sb
+      .from('expediente_historial')
+      .select('detalle')
+      .eq('expediente_id', exp.id)
+      .eq('evento', 'cambio_estatus')
+      .eq('estatus_nuevo', 'cancelado')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    // El detalle viene como "Expediente cancelado: <motivo>" o solo "Expediente cancelado"
+    // si no se dio motivo; aquí nos quedamos solo con la parte del motivo.
+    const motivo = (ultimoHist?.detalle || '').replace(/^Expediente cancelado:?\s*/i, '').trim();
+
     const html = plantillaCorreo({
       preheader: 'Tu expediente de crédito hipotecario fue cancelado.',
       kicker: 'Expediente cancelado',
       titulo: `Hola, ${nombre}: tu expediente fue cancelado`,
       cuerpoHtml: `
         <p style="margin:0 0 14px;">Tu expediente de crédito hipotecario fue cancelado por tu broker o por ESJOAN.</p>
+        ${motivo ? `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px;background:${GRIS_CLARO};border-left:3px solid ${RED};border-radius:4px;">
+          <tr><td style="padding:12px 16px;">
+            <p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:${GRIS_TEXTO};font-weight:bold;">Motivo</p>
+            <p style="margin:0;">${motivo}</p>
+          </td></tr>
+        </table>` : ''}
         <p style="margin:0;">No se perdió ninguna información: tus documentos, tu historial y tu análisis siguen disponibles si necesitas retomarlo.</p>
       `,
       cta: { texto: 'Ver mi expediente', url: link },
