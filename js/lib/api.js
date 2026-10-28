@@ -43,6 +43,29 @@ export async function perfilesPorId(ids) {
 }
 export const adminActualizarUsuario = async (id, rol, activo) => ok(await sb.rpc('admin_actualizar_usuario', { p_usuario: id, p_rol: rol, p_activo: activo }));
 export const listarBrokers = async () => ok(await sb.from('profiles').select('id,nombre_completo,email').eq('rol', 'broker').eq('activo', true).order('nombre_completo'));
+/** Expedientes donde este usuario aparece como cliente o como broker (para saber qué pasa al eliminarlo). */
+export const expedientesLigados = async (usuarioId) =>
+  ok(await sb.from('expedientes').select('id,folio,estatus,cliente_id,broker_id').or(`cliente_id.eq.${usuarioId},broker_id.eq.${usuarioId}`));
+/**
+ * Elimina por completo una cuenta (cliente o broker): borra Authentication y,
+ * en cascada, su perfil. No pasa por RPC normal porque borrar Authentication
+ * requiere la Admin API con la llave service_role (vive solo en la Edge
+ * Function `eliminar-usuario`, nunca en el navegador).
+ * `reasignaciones` es { expediente_id: nuevo_broker_id } para los expedientes
+ * activos de un broker que se va a eliminar (los ya firmados se reasignan
+ * solos al administrador). Si faltan reasignaciones, el error trae `.faltantes`.
+ */
+export async function eliminarUsuario(usuarioId, reasignaciones = {}) {
+  const { data: { session } } = await sb.auth.getSession();
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/eliminar-usuario`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+    body: JSON.stringify({ usuario_id: usuarioId, reasignaciones }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) { const err = new Error(data.error || `Error ${resp.status}`); err.faltantes = data.faltantes; throw err; }
+  return data;
+}
 
 // ---- Expedientes -------------------------------------------------------------------------------
 export const listarExpedientes = async () => ok(await sb.from('expedientes').select('*').order('created_at', { ascending: false }).limit(1000));

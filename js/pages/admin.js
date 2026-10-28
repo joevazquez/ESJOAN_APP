@@ -32,8 +32,12 @@ async function usuarios(ctx) {
         if (rol.value !== u.rol && !(await confirmar(`¿Cambiar el rol de ${u.email} a "${ROLES[rol.value]}"?${rol.value === 'admin' ? ' Tendrá acceso a TODOS los expedientes.' : ''}`, { titulo: 'Cambiar rol', si: 'Cambiar' }))) return;
         try { await api.adminActualizarUsuario(u.id, rol.value, activo.checked); u.rol = rol.value; u.activo = activo.checked; toast('Usuario actualizado.', 'ok'); } catch (e) { toast(api.mensajeError(e), 'error'); }
       }) }, 'Guardar');
+      const puedeEliminar = !yo && u.rol !== 'admin';
+      const btnEliminar = h('button', { class: 'btn btn-ghost btn-sm', disabled: !puedeEliminar, 'aria-label': `Eliminar ${u.email}`, title: puedeEliminar ? 'Eliminar cuenta' : (yo ? 'No puedes eliminar tu propia cuenta' : 'No se pueden eliminar cuentas de administrador aquí'),
+        onclick: () => eliminarUsuarioFlow(u, { lista, pintar }) }, icono('basura'));
       return h('tr', null, h('td', null, h('div', { style: 'font-weight:600' }, u.nombre_completo || '—', yo ? h('span', { class: 'badge gold plain', style: 'margin-left:8px' }, 'Tú') : null), h('div', { class: 'small muted' }, u.email)),
-        h('td', null, u.telefono || '—'), h('td', { style: 'min-width:190px' }, rol), h('td', null, h('label', { class: 'check' }, activo, h('span', null, 'Activa'))), h('td', { class: 'small muted nowrap' }, fecha(u.created_at)), h('td', null, btn));
+        h('td', null, u.telefono || '—'), h('td', { style: 'min-width:190px' }, rol), h('td', null, h('label', { class: 'check' }, activo, h('span', null, 'Activa'))), h('td', { class: 'small muted nowrap' }, fecha(u.created_at)),
+        h('td', { class: 'nowrap' }, btn, ' ', btnEliminar));
     }));
   };
   pintar();
@@ -43,6 +47,75 @@ async function usuarios(ctx) {
     banner('info', h('p', null, h('strong', null, 'Para dar de alta a un broker: '), 'pídele que cree su perfil en la página (Registro), y luego cámbiale el rol a "Broker hipotecario" aquí. Después asígnale expedientes desde el detalle de cada expediente.')),
     h('div', { class: 'filtros' }, busca, h('span', { class: 'grow' }), h('span', { class: 'muted small' }, `${lista.length} usuarios`)),
     h('div', { class: 'hoja' }, h('div', { class: 'scroll-x' }, h('table', { class: 'tabla' }, h('thead', null, h('tr', null, ['Usuario', 'Teléfono', 'Rol', 'Estado', 'Registro', ''].map((t) => h('th', null, t)))), cuerpo))));
+}
+
+/**
+ * Flujo para eliminar POR COMPLETO la cuenta de un cliente o broker (borra
+ * Authentication; no se puede deshacer, hay que registrarse de nuevo).
+ * Reglas de negocio:
+ *  - Cliente con expedientes: bloqueado (se conservan 5 años por ley).
+ *  - Broker: sus expedientes YA FIRMADOS se reasignan solos al administrador
+ *    que elimina; los expedientes activos (no firmados, no cancelados) hay
+ *    que reasignarlos a otro broker antes de poder eliminar.
+ */
+async function eliminarUsuarioFlow(u, { lista, pintar }) {
+  let ligados;
+  try { ligados = await api.expedientesLigados(u.id); } catch (e) { return toast(api.mensajeError(e), 'error'); }
+
+  if (u.rol === 'cliente') {
+    if (ligados.length) {
+      return modal({ titulo: 'No se puede eliminar', cuerpo: h('div', null,
+        banner('warn', h('p', null, h('strong', null, `${u.nombre_completo || u.email} `), `tiene ${ligados.length} expediente(s) registrado(s). Por disposición legal se conservan al menos 5 años: no se puede eliminar la cuenta mientras existan.`))),
+        acciones: [{ texto: 'Entendido', clase: 'btn-primary', onclick: (c) => c() }] });
+    }
+    const si = await confirmar(`¿Eliminar por completo la cuenta de ${u.nombre_completo || u.email}? No se puede deshacer; tendría que registrarse de nuevo.`, { titulo: 'Eliminar cuenta', si: 'Eliminar cuenta', peligro: true });
+    if (si) ejecutarEliminar(u, {}, { lista, pintar });
+    return;
+  }
+
+  if (u.rol === 'broker') {
+    const firmados = ligados.filter((e) => e.broker_id === u.id && e.estatus === 'firmado');
+    const activos = ligados.filter((e) => e.broker_id === u.id && e.estatus !== 'firmado' && e.estatus !== 'cancelado');
+
+    if (!activos.length) {
+      const nota = firmados.length ? h('p', { class: 'small muted' }, `Sus ${firmados.length} expediente(s) ya firmado(s) se reasignarán automáticamente a tu cuenta (se conservan por disposición legal).`) : null;
+      return modal({ titulo: 'Eliminar cuenta', cuerpo: h('div', null,
+        banner('bad', h('p', null, `¿Eliminar por completo la cuenta de `, h('strong', null, u.nombre_completo || u.email), `? No se puede deshacer; tendría que registrarse de nuevo.`)), nota),
+        acciones: [{ texto: 'Cancelar', clase: 'btn-outline', onclick: (c) => c() },
+          { texto: 'Eliminar cuenta', clase: 'btn-danger', onclick: (c) => { c(); ejecutarEliminar(u, {}, { lista, pintar }); } }] });
+    }
+
+    // Hay expedientes activos: hay que reasignarlos a otro broker antes de eliminar.
+    let brokers = [];
+    try { brokers = (await api.listarBrokers()).filter((b) => b.id !== u.id); } catch (e) { return toast(api.mensajeError(e), 'error'); }
+    const msg = h('div');
+    const selects = activos.map((e) => ({
+      exp: e,
+      sel: h('select', { class: 'input' }, h('option', { value: '' }, 'Elige un broker…'), brokers.map((b) => h('option', { value: b.id }, b.nombre_completo || b.email))),
+    }));
+    modal({ titulo: 'Reasigna sus expedientes activos', ancho: true, cuerpo: h('div', { class: 'stack' }, msg,
+      banner('warn', h('p', null, `${u.nombre_completo || u.email} tiene ${activos.length} expediente(s) activo(s). Elige a qué broker se pasa cada uno antes de eliminar su cuenta.`)),
+      firmados.length ? h('p', { class: 'small muted' }, `Sus ${firmados.length} expediente(s) ya firmado(s) se reasignarán automáticamente a tu cuenta.`) : null,
+      ...selects.map(({ exp, sel }) => campoForm(`r_${exp.id}`, `Expediente ${exp.folio} · ${exp.estatus}`, sel))),
+      acciones: [{ texto: 'Cancelar', clase: 'btn-outline', onclick: (c) => c() },
+        { texto: 'Reasignar y eliminar', clase: 'btn-danger', onclick: async (c) => {
+          msg.replaceChildren();
+          if (selects.some(({ sel }) => !sel.value)) return msg.append(banner('bad', 'Elige un broker para cada expediente.'));
+          const reasignaciones = Object.fromEntries(selects.map(({ exp, sel }) => [exp.id, sel.value]));
+          try { await api.eliminarUsuario(u.id, reasignaciones); c(); quitarDeLista(u, { lista, pintar }); toast('Cuenta eliminada.', 'ok'); } catch (e) { msg.append(banner('bad', api.mensajeError(e))); }
+        } }] });
+  }
+}
+
+/** Ejecuta el borrado ya confirmado (por confirmar() o por un modal propio): no vuelve a preguntar. */
+async function ejecutarEliminar(u, reasignaciones, { lista, pintar }) {
+  try { await api.eliminarUsuario(u.id, reasignaciones); quitarDeLista(u, { lista, pintar }); toast('Cuenta eliminada.', 'ok'); } catch (e) { toast(api.mensajeError(e), 'error', 7000); }
+}
+
+function quitarDeLista(u, { lista, pintar }) {
+  const i = lista.findIndex((x) => x.id === u.id);
+  if (i >= 0) lista.splice(i, 1);
+  pintar();
 }
 
 // ==================================================================================================
