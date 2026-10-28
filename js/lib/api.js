@@ -4,8 +4,14 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, BUCKET } from '../config.js';
 
 export const configurado = !/TU-PROYECTO|TU-LLAVE/.test(SUPABASE_URL + SUPABASE_ANON_KEY);
 const { createClient } = window.supabase;
+// Sesión guardada en sessionStorage (no localStorage): cada PESTAÑA tiene su
+// propia sesión, así varias personas pueden usar la misma computadora al
+// mismo tiempo, cada quien en su pestaña, sin que una cierre la sesión de
+// la otra. Efecto secundario esperado: una pestaña nueva siempre pide
+// iniciar sesión (no hereda la de otra pestaña), y cerrar la pestaña
+// cierra esa sesión (hay que volver a entrar si se reabre).
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.sessionStorage },
 });
 
 // ---- Errores ---------------------------------------------------------------------------------
