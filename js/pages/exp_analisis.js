@@ -1,12 +1,12 @@
 // Análisis de capacidad de pago: el sistema PROPONE ingreso, deuda existente y
 // banda de riesgo crediticio a partir del estado de cuenta y el Buró de Crédito
-// del cliente (extracción automática, heurísticas de texto — sin machine
-// learning). El broker siempre revisa y puede corregir todo antes de confirmar;
-// nada de esto lo ve el cliente hasta que el broker comparta una simulación.
+// del cliente (extracción automática con un modelo de lenguaje — Claude lee el
+// PDF en el servidor, nunca en el navegador). El broker siempre revisa y puede
+// corregir todo antes de confirmar; nada de esto lo ve el cliente hasta que el
+// broker comparta una simulación.
 import * as api from '../lib/api.js';
 import { h, icono, banner, toast, conBoton, fechaHora, aNumero } from '../lib/ui.js';
 import { hoja, campoForm, dinero } from '../lib/comun.js';
-import { textoDePDF, extraerBuro, extraerEstadoCuenta } from '../lib/extraccion.js';
 
 const BANDAS = ['NR 1 y 2 +', 'NR 3 +', 'NR 1 y 2', 'NR 3'];
 
@@ -40,10 +40,8 @@ export async function tabAnalisis(d) {
     const docId = sel ? sel.value : lista[0]?.id;
     const doc = lista.find((x) => x.id === docId) || lista[0];
     if (!doc) return null;
-    const url = await api.urlDocumento(doc.storage_path);
-    const buf = await (await fetch(url)).arrayBuffer();
-    const texto = await textoDePDF(new Uint8Array(buf));
-    return { doc, resultado: campo === 'buro' ? extraerBuro(texto) : extraerEstadoCuenta(texto) };
+    const resultado = await api.extraerPDF(doc.id, campo === 'buro' ? 'buro' : 'estado_cuenta');
+    return { doc, resultado };
   }
 
   const bBuro = h('button', { class: 'btn btn-outline btn-sm', disabled: !docsBuro.length }, icono('search'), 'Extraer del Buró');
@@ -70,7 +68,8 @@ export async function tabAnalisis(d) {
       if (r.ingresoMensualEstimado != null) ingreso.querySelector('input').value = Math.round(r.ingresoMensualEstimado).toLocaleString('es-MX');
       if (r.deudaMensualEstimada != null) deuda.querySelector('input').value = Math.round(r.deudaMensualEstimada).toLocaleString('es-MX');
       extraido = { ...extraido, estadoCuenta: { ...r, docId: doc.id, extraidoEn: new Date().toISOString() } };
-      evidenciaEstado.replaceChildren(h('p', { class: 'small muted', style: 'margin:6px 0 2px' }, `De: ${doc.nombre_archivo} (${r.mesesDetectados} mes(es) detectados)`), ...r.evidencia.map((ev) => h('div', { class: 'small', style: 'color:var(--muted)' }, '• ', ev)));
+      const meses = r.mesesDetectados != null ? ` (${r.mesesDetectados} mes(es) detectados)` : '';
+      evidenciaEstado.replaceChildren(h('p', { class: 'small muted', style: 'margin:6px 0 2px' }, `De: ${doc.nombre_archivo}${meses}`), ...r.evidencia.map((ev) => h('div', { class: 'small', style: 'color:var(--muted)' }, '• ', ev)));
       toast('Datos del estado de cuenta extraídos. Revísalos antes de confirmar.', 'ok');
     } catch (e) { msg.replaceChildren(banner('bad', 'No se pudo leer el estado de cuenta: ' + api.mensajeError(e))); }
   });
@@ -113,6 +112,6 @@ export async function tabAnalisis(d) {
     h('div', { class: 'row' }, bGuardar, previo ? h('a', { class: 'btn btn-outline', href: `#/expediente/${exp.id}/simulador` }, icono('calc'), 'Ir al comparador con estos datos') : null));
 
   return h('div', { class: 'stack' },
-    banner('warn', h('p', null, h('strong', null, 'Extracción automática, no una decisión automática. '), 'Los valores de arriba son un punto de partida leído de los PDF con reglas de texto; siempre revísalos contra el documento original antes de confirmar. El cliente nunca ve esta pantalla ni sus datos crudos.')),
+    banner('warn', h('p', null, h('strong', null, 'Extracción automática, no una decisión automática. '), 'Los valores de arriba son un punto de partida leído de los PDF por un modelo de lenguaje; siempre revísalos contra el documento original antes de confirmar. El cliente nunca ve esta pantalla ni sus datos crudos.')),
     hoja(null, form, { plana: true }));
 }

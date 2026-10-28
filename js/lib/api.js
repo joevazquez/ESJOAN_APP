@@ -131,6 +131,26 @@ export async function eliminarDocumento(doc) {
   await sb.storage.from(BUCKET).remove([doc.storage_path]); // si falla queda huérfano pero inaccesible
 }
 
+/**
+ * Pide a la Edge Function `extraer-pdf` que lea un documento (Buró de
+ * Crédito o estado de cuenta) con Claude (Anthropic) y devuelva los datos
+ * ya estructurados. Reemplaza la extracción por regex de lib/extraccion.js:
+ * el PDF nunca se procesa en el navegador, se manda al servidor.
+ * `tipo` es 'buro' o 'estado_cuenta'. El broker sigue revisando el resultado
+ * (incluida la `evidencia`) contra el PDF original antes de confirmar.
+ */
+export async function extraerPDF(documentoId, tipo) {
+  const { data: { session } } = await sb.auth.getSession();
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/extraer-pdf`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+    body: JSON.stringify({ documento_id: documentoId, tipo }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || `Error ${resp.status}`);
+  return data.resultado;
+}
+
 // ---- Bancos, tarifas y simulaciones ------------------------------------------------------------------
 export async function bancosConTasas() {
   const bancos = ok(await sb.from('bancos').select('*').order('nombre'));
