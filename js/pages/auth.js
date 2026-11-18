@@ -74,6 +74,11 @@ export function login() {
 }
 
 // ---- Registro de cliente ---------------------------------------------------------------------------------------
+// Versión del aviso de privacidad. Cámbiala (p. ej. a la fecha del cambio) cada vez que
+// modifiques el texto del aviso: se guarda en el perfil de cada cliente que lo acepta
+// (supabase/15_consentimiento_aviso.sql) como evidencia de qué versión aceptó.
+const AVISO_PRIVACIDAD_VERSION = '2026-10-13';
+
 function avisoPrivacidad() {
   modal({
     titulo: 'Aviso de privacidad', ancho: false,
@@ -83,7 +88,8 @@ function avisoPrivacidad() {
       h('p', null, 'La única finalidad por la que tratamos tus datos es integrar y dar seguimiento a tu solicitud de crédito hipotecario, y compartirlos con las instituciones financieras que tú autorices para ese trámite. No usamos tus datos para mercadotecnia, publicidad ni ningún otro fin.'),
       h('p', null, 'Tus documentos se guardan en un espacio privado en Supabase (nuestro proveedor de base de datos y almacenamiento, con servidores en Estados Unidos, que actúa como encargado de tus datos) y solo se abren con enlaces temporales que expiran en 90 segundos. Solo tú, el broker que tenga asignado tu expediente y el personal administrativo autorizado pueden consultarlos.'),
       h('p', null, 'Para agilizar la revisión de tu reporte de Buró de Crédito y tu estado de cuenta, usamos una herramienta de inteligencia artificial (Claude, de Anthropic PBC, también con servidores en Estados Unidos) que lee esos documentos y propone los datos financieros al sistema. Esa propuesta nunca se usa sola: tu broker siempre la revisa y confirma contra el documento original antes de que forme parte de tu expediente.'),
-      h('p', null, 'Puedes ejercer tus derechos de acceso, rectificación, cancelación y oposición (ARCO), así como revocar tu consentimiento, escribiendo a ', h('a', { href: 'mailto:esjoan_soluciones@gmail.com' }, 'esjoan_soluciones@gmail.com'), '. Responderemos en un plazo máximo de 20 días hábiles.')),
+      h('p', null, 'Puedes ejercer tus derechos de acceso, rectificación, cancelación y oposición (ARCO), así como revocar tu consentimiento, escribiendo a ', h('a', { href: 'mailto:esjoan_soluciones@gmail.com' }, 'esjoan_soluciones@gmail.com'), '. Responderemos en un plazo máximo de 20 días hábiles.'),
+      h('p', { class: 'muted' }, `Versión del aviso: ${AVISO_PRIVACIDAD_VERSION}.`)),
     acciones: [{ texto: 'Entendido', clase: 'btn-primary', onclick: (c) => c() }],
   });
 }
@@ -106,7 +112,7 @@ export function registro() {
     if (!claveValida(v.p)) return msg.append(banner('bad', 'La contraseña no cumple los requisitos de seguridad.'));
     if (!acepto.checked) return msg.append(banner('bad', 'Debes aceptar el aviso de privacidad para continuar.'));
     await conBoton(btn, async () => {
-      const { error } = await sb.auth.signUp({ email: v.c, password: v.p, options: { data: { nombre_completo: v.n, telefono: v.t }, emailRedirectTo: RETORNO() } });
+      const { error } = await sb.auth.signUp({ email: v.c, password: v.p, options: { data: { nombre_completo: v.n, telefono: v.t, aviso_version: AVISO_PRIVACIDAD_VERSION }, emailRedirectTo: RETORNO() } });
       if (error) return msg.append(banner('bad', mensajeError(error)));
       // Mensaje genérico (no revela si el correo ya existía)
       cont.replaceChildren(banner('ok', h('p', null, h('strong', null, 'Revisa tu correo.')), h('p', null, 'Si el correo es nuevo, te enviamos un enlace para confirmar tu cuenta. Después podrás iniciar sesión.')), h('a', { class: 'btn btn-outline btn-block', href: '#/login' }, 'Ir a iniciar sesión'));
