@@ -30,8 +30,15 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 const ANTHROPIC_MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-sonnet-4-5-20250929';
 
+// Solo la app de ESJOAN puede llamar esta función desde un navegador.
+// Si algún día cambias de dominio (p. ej. esjoansoluciones.com) o quieres
+// probar en local, no toques el código: define el secreto
+//   supabase secrets set ORIGEN_PERMITIDO=https://tu-dominio.com
+const ORIGEN_PERMITIDO = Deno.env.get('ORIGEN_PERMITIDO') || 'https://joevazquez.github.io';
+
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ORIGEN_PERMITIDO,
+  'Vary': 'Origin',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-filename',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
@@ -150,6 +157,10 @@ async function llamarClaude(texto: string, truncado: boolean) {
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
+  // Rechaza peticiones que vienen de otra página web. (Las que no traen
+  // Origin, como curl, igual necesitan un JWT válido más abajo.)
+  const origen = req.headers.get('origin');
+  if (origen && origen !== ORIGEN_PERMITIDO) return json({ error: 'Origen no permitido' }, 403);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
     if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405);
