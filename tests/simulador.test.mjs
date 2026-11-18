@@ -1,7 +1,7 @@
 // Ejecutar:  node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluar, compararBancos, pagoFijo, tasaMensual, costoAvaluo, pagoInicialCreciente, mejorPorBancoPlazo, topN } from '../js/lib/simulador.js';
+import { evaluar, compararBancos, pagoFijo, tasaMensual, costoAvaluo, pagoInicialCreciente, mejorPorBancoPlazo, topN, CRITERIOS_ORDEN } from '../js/lib/simulador.js';
 
 const cerca = (a, b, tol = 0.01) => assert.ok(Math.abs(a - b) <= tol, `${a} ≉ ${b}`);
 
@@ -127,7 +127,7 @@ test('topN: una sola oferta por banco (la mejor), ordenadas y recortadas a N', (
     { bancoClave: 'c', plazoAnios: 20, mensualidadInicial: 8000 },   // la mejor de todas
     { bancoClave: 'd', plazoAnios: 20, mensualidadInicial: 15000 },
   ];
-  const top3 = topN(r, 3);
+  const top3 = topN(r, 3, CRITERIOS_ORDEN.mensualidad);
   assert.equal(top3.length, 3);
   assert.deepEqual(top3.map((x) => x.bancoClave), ['c', 'a', 'b']); // 8000, 9000, 11000
   assert.equal(top3[0].mensualidadInicial, 8000);
@@ -135,7 +135,27 @@ test('topN: una sola oferta por banco (la mejor), ordenadas y recortadas a N', (
   // nunca dos filas del mismo banco
   assert.equal(new Set(top3.map((x) => x.bancoClave)).size, 3);
   // con menos bancos distintos que N, regresa los que haya sin reventar
-  assert.equal(topN([r[0], r[2]], 3).length, 2); // bancos "a" y "b": 2 bancos distintos, N=3
+  assert.equal(topN([r[0], r[2]], 3, CRITERIOS_ORDEN.mensualidad).length, 2); // bancos "a" y "b": 2 bancos distintos, N=3
+});
+
+test('topN por defecto ordena por CAT: un fijo con menor tasa gana a un creciente con menor mensualidad inicial', () => {
+  const banco = (clave) => ({ clave, nombre: clave, parametros: { iva: 0.16, plazo_min: 5, plazo_max: 20 } });
+  const fila = (esquema, tasa) => ({ id: 1, esquema, tasa, plazo_min: 5, plazo_max: 20, aforo_max: 1, incremento_anual: 0.03, incremento_anios: 5 });
+  const entrada = { valor: 4e6, monto: 3e6, plazoAnios: 20, programa: 'tradicional' };
+  const creciente = evaluar(banco('creciente'), fila('creciente', 0.1075), entrada);
+  const fijo = evaluar(banco('fijo'), fila('fijo', 0.1025), entrada);
+  // el creciente arranca pagando menos…
+  assert.ok(creciente.mensualidadInicial < fijo.mensualidadInicial);
+  // …pero es más caro, y el Top-N por defecto lo pone después
+  assert.ok(fijo.cat < creciente.cat);
+  assert.deepEqual(topN([creciente, fijo], 2).map((x) => x.bancoClave), ['fijo', 'creciente']);
+  // si alguien pide explícitamente "menor mensualidad", sigue pudiendo
+  assert.deepEqual(topN([creciente, fijo], 2, CRITERIOS_ORDEN.mensualidad).map((x) => x.bancoClave), ['creciente', 'fijo']);
+});
+
+test('CRITERIOS_ORDEN: un resultado sin CAT se va al final', () => {
+  const r = [{ bancoClave: 'sin', cat: null }, { bancoClave: 'con', cat: 0.14 }];
+  assert.deepEqual(topN(r, 2).map((x) => x.bancoClave), ['con', 'sin']);
 });
 
 test('topN con otro criterio (menor tasa) ordena distinto', () => {

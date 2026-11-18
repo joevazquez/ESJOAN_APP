@@ -281,12 +281,31 @@ export function mejorPorBanco(resultados, clave = (r) => r.mensualidadInicial) {
 }
 
 /**
- * Las N mejores ofertas, una por banco (nunca dos filas del mismo banco),
- * ordenadas por `clave` (por defecto menor mensualidad inicial). Es la base
- * del recomendador "Top-3": automatiza en segundos la comparación que antes
- * tomaba abrir los 9 simuladores de Excel uno por uno.
+ * Criterios para ordenar ofertas (menor = mejor). Es el único catálogo: lo
+ * usan tanto topN() como la pantalla del simulador.
+ *
+ * El criterio por defecto es el CAT porque es la métrica oficial en México
+ * para comparar créditos: incluye tasa, comisiones y seguros, y no se deja
+ * engañar por los esquemas de pagos crecientes (que empiezan con una
+ * mensualidad baja y terminan pagando más). Ordenar por mensualidad inicial
+ * ponía, p. ej., un crédito creciente al 10.75 % arriba de uno fijo al 10.25 %.
+ * Si un resultado no trae CAT, se manda al final (9 = 900 %).
  */
-export function topN(resultados, n = 3, clave = (r) => r.mensualidadInicial) {
+export const CRITERIOS_ORDEN = {
+  cat: (r) => r.cat ?? 9,
+  costo: (r) => r.costoTotalCredito,
+  mensualidad: (r) => r.mensualidadInicial,
+  desembolso: (r) => r.desembolsoInicial,
+  tasa: (r) => r.tasa,
+};
+
+/**
+ * Las N mejores ofertas, una por banco (nunca dos filas del mismo banco),
+ * ordenadas por `clave` (por defecto menor CAT). Es la base del recomendador
+ * "Top-3": automatiza en segundos la comparación que antes tomaba abrir los
+ * 9 simuladores de Excel uno por uno.
+ */
+export function topN(resultados, n = 3, clave = CRITERIOS_ORDEN.cat) {
   return mejorPorBanco(resultados, clave).sort((a, b) => clave(a) - clave(b)).slice(0, n);
 }
 

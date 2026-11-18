@@ -1,7 +1,7 @@
 import * as api from '../lib/api.js';
 import { h, icono, banner, toast, modal, confirmar, mxn, pct, numero, aNumero, fecha, debounce, vacio } from '../lib/ui.js';
 import { hoja, campoForm, dinero } from '../lib/comun.js';
-import { PROGRAMAS, programaDeTipo, compararBancos, mejorPorBancoPlazo, topN, resumen } from '../lib/simulador.js';
+import { PROGRAMAS, programaDeTipo, compararBancos, mejorPorBancoPlazo, topN, resumen, CRITERIOS_ORDEN } from '../lib/simulador.js';
 import { GASTOS_NOTARIALES_DEFECTO } from '../config.js';
 
 const PLAZOS = [5, 10, 15, 20, 25, 30];
@@ -88,7 +88,7 @@ export async function tabSimulador(d) {
   // ---- estado de parámetros -----------------------------------------------------------------------------
   const p = {
     plazos: new Set([PLAZOS.reduce((a, x) => (Math.abs(x - (exp.plazo_anios || 20)) < Math.abs(a - (exp.plazo_anios || 20)) ? x : a), 20)]),
-    programa: programaDeTipo(exp.tipo), soloMejor: true, orden: 'mensualidad',
+    programa: programaDeTipo(exp.tipo), soloMejor: true, orden: 'cat',
   };
   const iValor = dinero('s_valor', exp.valor_inmueble ?? ''); const iMonto = dinero('s_monto', exp.monto_solicitado ?? '');
   const iIngreso = dinero('s_ing', analisis?.ingreso_mensual ?? exp.ingreso_mensual ?? '');
@@ -102,7 +102,7 @@ export async function tabSimulador(d) {
   const iTop3 = h('input', { type: 'checkbox', checked: false });
   const iUsarBanda = h('input', { type: 'checkbox', checked: !!analisis?.banda_riesgo });
   const iOrden = h('select', { class: 'input', 'aria-label': 'Ordenar por' },
-    [['mensualidad', 'Menor mensualidad'], ['cat', 'Menor CAT'], ['costo', 'Menor costo total'], ['desembolso', 'Menor desembolso inicial'], ['tasa', 'Menor tasa']].map(([k, v]) => h('option', { value: k }, v)));
+    [['cat', 'Menor CAT (recomendado)'], ['costo', 'Menor costo total'], ['mensualidad', 'Menor mensualidad inicial'], ['desembolso', 'Menor desembolso inicial'], ['tasa', 'Menor tasa']].map(([k, v]) => h('option', { value: k, selected: k === 'cat' }, v)));
   const val = (el) => aNumero(el.querySelector('input').value) || 0;
   const syncAforo = () => { const v = val(iValor), m = val(iMonto); iAforo.value = v && m ? ((m / v) * 100).toFixed(1) : ''; };
   syncAforo();
@@ -127,7 +127,7 @@ export async function tabSimulador(d) {
   function pintarResultados(todos, entrada) {
     let ok = todos.filter((r) => r.elegible);
     const noOk = todos.filter((r) => !r.elegible);
-    const claves = { mensualidad: (r) => r.mensualidadInicial, cat: (r) => (r.cat ?? 9), costo: (r) => r.costoTotalCredito, desembolso: (r) => r.desembolsoInicial, tasa: (r) => r.tasa };
+    const claves = CRITERIOS_ORDEN;
     if (iTop3.checked) {
       // Top-3: automatiza en segundos la comparación que antes tomaba abrir los 9 simuladores —
       // una sola oferta por banco (la mejor), recortada a las 3 mejores según el criterio elegido.
